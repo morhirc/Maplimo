@@ -1,0 +1,10 @@
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+
+# Personal Timeline exports — DO NOT COMMIT
+タイムライン.json
+timeline.json
+Takeout/
