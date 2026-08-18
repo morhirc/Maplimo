@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Maplimo - Androidから書き出したタイムライン.jsonをPCの地図上で振り返るローカルビューア">
+  <title>Maplimo v1.0 - 地図から、あの日をたどる。</title>
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: "Segoe UI", "Yu Gothic UI", sans-serif; }
+    body { background: #111827; color: #e5e7eb; overflow: hidden; }
+
+    #app {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      height: 100vh;
+    }
+
+    #sidebar {
+      background: #111827;
+      border-right: 1px solid #374151;
+      display: block;
+      min-width: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+    }
+
+    #top {
+      padding: 14px;
+      border-bottom: 1px solid #374151;
+      background: #0f172a;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .sub {
+      font-size: 12px;
+      color: #9ca3af;
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 7px 0;
+    }
+
+    button, input[type="date"], .filelabel {
+      border: 1px solid #4b5563;
+      background: #1f2937;
+      color: #f9fafb;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+
+    button:hover, .filelabel:hover {
+      background: #374151;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+    #file {
+      display: none;
+    }
+
+    .filelabel {
+      display: inline-block;
+      width: 100%;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    #date {
+      flex: 1;
+      min-width: 0;
+    }
+
+    #status {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #cbd5e1;
+      border-bottom: 1px solid #374151;
+      background: #111827;
+      white-space: pre-wrap;
+    }
+
+    #summary {
+      padding: 10px 12px;
+      border-bottom: 1px solid #374151;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    #events {
+      overflow: visible;
+      padding: 8px;
+    }
+
+    .event {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .event:hover {
+      border-color: #6b7280;
+      background: #273449;
+    }
+
+    .event .title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .event .meta {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid #6b7280;
+      border-radius: 999px;
+      padding: 1px 7px;
+      margin-right: 5px;
+      font-size: 11px;
+      color: #f3f4f6;
+    }
+
+
+    .place-name {
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      margin-bottom: 3px;
+    }
+
+    .place-address {
+      font-size: 11px;
+      color: #9ca3af;
+      line-height: 1.45;
+      margin-top: 2px;
+    }
+
+    .resolve-note {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    .mapslink {
+      display: inline-block;
+      margin-top: 6px;
+      color: #93c5fd;
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    #map {
+      height: 100vh;
+      width: 100%;
+      background: #0b1220;
+    }
+
+
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    select, input[type="search"], textarea {
+      width: 100%;
+      border: 1px solid #4b5563;
+      background: #1f2937;
+      color: #f9fafb;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    #placeSearch {
+      padding: 10px 12px;
+      font-size: 15px;
+      min-height: 42px;
+    }
+
+    #searchResults {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+
+    .search-result {
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 7px 8px;
+      margin-bottom: 5px;
+      background: #172033;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .search-result:hover { background: #273449; }
+
+    .search-head {
+      font-size: 11px;
+      color: #9ca3af;
+      margin: 6px 2px 5px;
+    }
+
+    .search-date {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .region-day-active {
+      border-color: #93c5fd;
+      background: #273449;
+      outline: 1px solid #93c5fd;
+    }
+
+
+    .memory-panel {
+      padding: 10px 12px;
+      border-bottom: 1px solid #374151;
+      background: #111827;
+    }
+
+    .memory-title {
+      font-weight: 700;
+      margin-bottom: 7px;
+    }
+
+    .memory-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 8px;
+    }
+
+    .memory-output {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #cbd5e1;
+    }
+
+    .memory-item {
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 7px 8px;
+      margin-top: 6px;
+      background: #172033;
+      cursor: pointer;
+    }
+
+    .memory-item:hover {
+      background: #273449;
+    }
+
+    .memory-big {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f9fafb;
+    }
+
+    .city-summary {
+      margin-top: 6px;
+      margin-bottom: 7px;
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .city-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .city-item .city-name {
+      font-weight: 700;
+      color: #f9fafb;
+    }
+
+    .city-item .city-count {
+      color: #93c5fd;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .city-days {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: -2px;
+    }
+
+    .city-map-marker {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #dc2626;
+      border: 3px solid white;
+      color: white;
+      font-weight: 800;
+      font-size: 12px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.45);
+    }
+
+    .city-fetch {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .rank-num {
+      display: inline-block;
+      min-width: 22px;
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .day-tools {
+      padding: 10px 12px;
+      border-bottom: 1px solid #374151;
+      background: #0f172a;
+    }
+
+    #dayNote {
+      min-height: 58px;
+      resize: vertical;
+      margin-top: 7px;
+      font-family: inherit;
+    }
+
+    .fav-active {
+      background: #4b3d13 !important;
+      border-color: #a78b3a !important;
+    }
+
+    .statline {
+      color: #cbd5e1;
+      margin-top: 3px;
+    }
+
+    .route-legend {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .empty {
+      text-align: center;
+      color: #9ca3af;
+      padding: 24px 12px;
+      line-height: 1.7;
+    }
+
+    #dropOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .88);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 700;
+      border: 5px dashed #93c5fd;
+    }
+
+    @media (max-width: 850px) {
+      #app { grid-template-columns: 330px 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div id="dropOverlay">タイムライン.json をここにドロップ</div>
+
+<div id="app">
+  <aside id="sidebar">
+    <div id="top">
+      <h1>🗺 Maplimo <span style="font-size:12px;color:#9ca3af;font-weight:600;">v1.0</span></h1>
+      <div style="font-size:13px;color:#cbd5e1;margin:-4px 0 10px;">地図から、あの日をたどる。</div>
+      <div class="sub">
+        Androidから書き出した「タイムライン.json」を読み込みます。<br>
+        JSONはブラウザ内で処理し、サーバーへアップロードしません。場所名だけOpenStreetMapの逆ジオコーディングで取得し、PC内にキャッシュします。
+      </div>
+
+      <label class="filelabel" for="file">📂 タイムライン.json を選ぶ</label>
+      <input id="file" type="file" accept=".json,application/json">
+
+      <div class="toolbar-grid">
+        <select id="year" disabled><option>年</option></select>
+        <select id="month" disabled><option>月</option></select>
+      </div>
+
+      <div class="row">
+        <input id="placeSearch" type="search" placeholder="🔎 行った地域を検索（例：北海道、札幌、長野）" disabled>
+      </div>
+      <div id="searchResults"></div>
+
+      <div class="row">
+        <button id="prev" title="前の日">◀</button>
+        <input id="date" type="date" disabled>
+        <button id="next" title="次の日">▶</button>
+      </div>
+
+      <div class="row">
+        <button id="fit" style="flex:1" disabled>🗺 今日の全体を表示</button>
+        <button id="today" disabled>最新日</button>
+      </div>
+    </div>
+
+    <div class="memory-panel">
+      <div class="memory-title">🎲 思い出モード</div>
+      <div class="memory-buttons">
+        <button id="randomDay" disabled>🎲 あの日へワープ</button>
+        <button id="yearsAgo" disabled>🕰 ○年前の今日</button>
+        <button id="tripList" disabled>🧳 旅行一覧</button>
+        <button id="rankings" disabled>🏆 ランキング</button>
+        <button id="cities" disabled style="grid-column:1 / -1">🏙 行った都市</button>
+      </div>
+      <div id="memoryOutput" class="memory-output"></div>
+    </div>
+
+    <div id="status">JSONを選んでください。</div>
+    <div id="summary"></div>
+    <div class="route-legend" style="padding:8px 12px;border-bottom:1px solid #374151;">
+      ルート表示：🚗車 / 🚶徒歩 / 🚆電車などを線種で区別
+    </div>
+    <div id="events">
+      <div class="empty">
+        まず「タイムライン.json」を読み込んでください。<br><br>
+        ファイルをこの画面へドラッグ＆ドロップしてもOKです。
+      </div>
+    </div>
+
+    <div class="day-tools" id="dayToolsBottom">
+      <div class="row" style="margin:0">
+        <button id="favorite" style="flex:1" disabled>☆ この日をお気に入り</button>
+      </div>
+      <textarea id="dayNote" placeholder="この日の思い出メモ…" disabled></textarea>
+    </div>
+  </aside>
+
+  <main id="map"></main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const els = {
+    file: document.getElementById('file'),
+    date: document.getElementById('date'),
+    prev: document.getElementById('prev'),
+    next: document.getElementById('next'),
+    fit: document.getElementById('fit'),
+    today: document.getElementById('today'),
+    status: document.getElementById('status'),
+    summary: document.getElementById('summary'),
+    events: document.getElementById('events'),
+    drop: document.getElementById('dropOverlay'),
+    year: document.getElementById('year'),
+    month: document.getElementById('month'),
+    placeSearch: document.getElementById('placeSearch'),
+    searchResults: document.getElementById('searchResults'),
+    favorite: document.getElementById('favorite'),
+    dayNote: document.getElementById('dayNote'),
+    randomDay: document.getElementById('randomDay'),
+    yearsAgo: document.getElementById('yearsAgo'),
+    tripList: document.getElementById('tripList'),
+    rankings: document.getElementById('rankings'),
+    cities: document.getElementById('cities'),
+    memoryOutput: document.getElementById('memoryOutput')
+  };
+
+  let data = null;
+  let segments = [];
+  let availableDates = [];
+  let map = null;
+  let layer = null;
+  let bounds = [];
+  const geocodeCache = JSON.parse(localStorage.getItem('timelineGeocodeCache_v1') || '{}');
+  let geocodeQueue = [];
+  let geocodeRunning = false;
+  let geocodeLastAt = 0;
+  const dayMeta = JSON.parse(localStorage.getItem('timelineDayMeta_v1') || '{}');
+  let currentDay = '';
+
+  const ACTIVITY = {
+    IN_PASSENGER_VEHICLE: '🚗 車',
+    WALKING: '🚶 徒歩',
+    MOTORCYCLING: '🏍 バイク',
+    IN_SUBWAY: '🚇 地下鉄',
+    IN_TRAIN: '🚆 電車',
+    CYCLING: '🚲 自転車',
+    IN_BUS: '🚌 バス',
+    FLYING: '✈ 飛行機',
+    UNKNOWN_ACTIVITY_TYPE: '❓ 移動'
+  };
+
+  const SEMANTIC = {
+    HOME: '🏠 自宅',
+    INFERRED_HOME: '🏠 自宅(推定)',
+    WORK: '🏢 職場',
+    INFERRED_WORK: '🏢 職場(推定)',
+    SEARCHED_ADDRESS: '📍 検索した場所',
+    ALIASED_LOCATION: '📍 登録場所',
+    UNKNOWN: '📍 訪問'
+  };
+
+  initMap();
+
+  function initMap() {
+    map = L.map('map', { zoomControl: true }).setView([36.2048, 138.2529], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    layer = L.layerGroup().addTo(map);
+  }
+
+  function esc(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function dateKey(v) {
+    if (!v || typeof v !== 'string') return null;
+    return v.slice(0, 10);
+  }
+
+  function timeText(v) {
+    if (!v || typeof v !== 'string') return '';
+    const t = v.slice(11, 16);
+    return t || '';
+  }
+
+  function parseLatLng(text) {
+    if (!text || typeof text !== 'string') return null;
+    const m = text.match(/(-?\d+(?:\.\d+)?)°?\s*,\s*(-?\d+(?:\.\d+)?)°?/);
+    if (!m) return null;
+    const lat = Number(m[1]);
+    const lng = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return [lat, lng];
+  }
+
+  function metersText(m) {
+    if (!Number.isFinite(m)) return '';
+    return m >= 1000 ? (m / 1000).toFixed(m >= 10000 ? 0 : 1) + ' km' : Math.round(m) + ' m';
+  }
+
+
+  function cacheKey(ll) {
+    if (!ll) return '';
+    // round slightly so repeated nearby points hit the same cache entry
+    return `${ll[0].toFixed(5)},${ll[1].toFixed(5)}`;
+  }
+
+  function saveCache() {
+    try {
+      localStorage.setItem('timelineGeocodeCache_v1', JSON.stringify(geocodeCache));
+    } catch (e) {
+      console.warn('geocode cache save failed', e);
+    }
+  }
+
+  function bestNameFromNominatim(j) {
+    if (!j) return '';
+    const a = j.address || {};
+    return (
+      a.amenity ||
+      a.shop ||
+      a.tourism ||
+      a.leisure ||
+      a.office ||
+      a.building ||
+      a.railway ||
+      a.station ||
+      a.attraction ||
+      a.hotel ||
+      a.restaurant ||
+      a.cafe ||
+      a.pub ||
+      a.supermarket ||
+      a.mall ||
+      a.road ||
+      j.name ||
+      ''
+    );
+  }
+
+  function compactAddress(j) {
+    if (!j) return '';
+    const a = j.address || {};
+    const parts = [
+      a.house_number && a.road ? `${a.road} ${a.house_number}` : a.road,
+      a.neighbourhood || a.suburb || a.quarter,
+      a.city || a.town || a.village || a.municipality,
+      a.state
+    ].filter(Boolean);
+
+    const dedup = [];
+    for (const p of parts) if (!dedup.includes(p)) dedup.push(p);
+    return dedup.join(' / ') || j.display_name || '';
+  }
+
+  async function reverseGeocode(ll) {
+    const key = cacheKey(ll);
+    if (!key) return null;
+    if (geocodeCache[key]) return geocodeCache[key];
+
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(ll[0])}` +
+      `&lon=${encodeURIComponent(ll[1])}&zoom=18&addressdetails=1&accept-language=ja`;
+
+    const now = Date.now();
+    const wait = Math.max(0, 1100 - (now - geocodeLastAt));
+    if (wait) await new Promise(r => setTimeout(r, wait));
+
+    geocodeLastAt = Date.now();
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`逆ジオコーディング失敗: ${res.status}`);
+
+    const j = await res.json();
+    const a = j.address || {};
+    const out = {
+      name: bestNameFromNominatim(j),
+      address: compactAddress(j),
+      display_name: j.display_name || '',
+      city: a.city || a.town || a.village || a.municipality || a.city_district || '',
+      prefecture: a.state || a.province || '',
+      country: a.country || ''
+    };
+    geocodeCache[key] = out;
+    saveCache();
+    return out;
+  }
+
+  function enqueueGeocode(cardEl, marker, ll, semanticFallback) {
+    const key = cacheKey(ll);
+    if (!key) return;
+
+    const apply = (info) => {
+      if (!info) return;
+      const nameEl = cardEl?.querySelector('.place-name');
+      const addrEl = cardEl?.querySelector('.place-address');
+      const noteEl = cardEl?.querySelector('.resolve-note');
+
+      const goodName = info.name && info.name !== info.address ? info.name : '';
+      if (nameEl) nameEl.textContent = goodName || semanticFallback;
+      if (addrEl) addrEl.textContent = info.address || info.display_name || '';
+      if (noteEl) noteEl.textContent = goodName ? '' : '場所名が取れないため住所表示';
+
+      if (marker) {
+        const popup = marker.getPopup()?.getContent() || '';
+        const prefix = goodName ? `<b>${esc(goodName)}</b><br>` : '';
+        marker.setPopupContent(prefix + popup);
+      }
+    };
+
+    if (geocodeCache[key]) {
+      apply(geocodeCache[key]);
+      return;
+    }
+
+    geocodeQueue.push({ ll, apply });
+    runGeocodeQueue();
+  }
+
+  async function runGeocodeQueue() {
+    if (geocodeRunning) return;
+    geocodeRunning = true;
+
+    while (geocodeQueue.length) {
+      const job = geocodeQueue.shift();
+      try {
+        const info = await reverseGeocode(job.ll);
+        job.apply(info);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    geocodeRunning = false;
+  }
+
+
+  function saveDayMeta() {
+    try {
+      localStorage.setItem('timelineDayMeta_v1', JSON.stringify(dayMeta));
+    } catch (e) { console.warn(e); }
+  }
+
+  function ensureDayMeta(day) {
+    if (!dayMeta[day]) dayMeta[day] = { favorite: false, note: '' };
+    return dayMeta[day];
+  }
+
+  function refreshDayMetaUI(day) {
+    const m = ensureDayMeta(day);
+    els.favorite.classList.toggle('fav-active', !!m.favorite);
+    els.favorite.textContent = m.favorite ? '★ お気に入り登録済み' : '☆ この日をお気に入り';
+    els.dayNote.value = m.note || '';
+  }
+
+  function populateYearMonth() {
+    const years = [...new Set(availableDates.map(d => d.slice(0,4)))].sort();
+    els.year.innerHTML = years.map(y => `<option value="${y}">${y}年</option>`).join('');
+    els.month.innerHTML = Array.from({length:12}, (_,i) => {
+      const m = String(i+1).padStart(2,'0');
+      return `<option value="${m}">${i+1}月</option>`;
+    }).join('');
+  }
+
+  function syncYearMonth(day) {
+    if (!day) return;
+    els.year.value = day.slice(0,4);
+    els.month.value = day.slice(5,7);
+  }
+
+  function jumpYearMonth() {
+    const prefix = `${els.year.value}-${els.month.value}`;
+    const candidates = availableDates.filter(d => d.startsWith(prefix));
+    if (candidates.length) renderDay(candidates[0]);
+    else els.status.textContent = `ℹ ${els.year.value}年${Number(els.month.value)}月には記録が見つかりません。`;
+  }
+
+  function routeStyle(type) {
+    switch (type) {
+      case 'WALKING': return {weight:5, opacity:.85, dashArray:'3,7'};
+      case 'CYCLING': return {weight:4, opacity:.75, dashArray:'10,6'};
+      case 'IN_TRAIN':
+      case 'IN_SUBWAY': return {weight:5, opacity:.8, dashArray:'14,6,3,6'};
+      case 'FLYING': return {weight:3, opacity:.65, dashArray:'2,10'};
+      case 'IN_BUS': return {weight:4, opacity:.75, dashArray:'8,6'};
+      case 'MOTORCYCLING': return {weight:4, opacity:.8, dashArray:'12,4'};
+      default: return {weight:4, opacity:.7};
+    }
+  }
+
+  function allVisitPoints() {
+    const out = [];
+    for (const s of segments) {
+      if (!s.visit) continue;
+      const c = s.visit.topCandidate || {};
+      const ll = parseLatLng(c.placeLocation?.latLng);
+      if (!ll) continue;
+      out.push({
+        ll,
+        day: dateKey(s.startTime),
+        start: timeText(s.startTime),
+        end: timeText(s.endTime),
+        semantic: SEMANTIC[c.semanticType] || ('📍 ' + (c.semanticType || '訪問')),
+        placeId: c.placeId || ''
+      });
+    }
+    return out;
+  }
+
+  async function nominatimSearch(q) {
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&addressdetails=1` +
+      `&accept-language=ja&q=${encodeURIComponent(q)}`;
+
+    const now = Date.now();
+    const wait = Math.max(0, 1100 - (now - geocodeLastAt));
+    if (wait) await new Promise(r => setTimeout(r, wait));
+    geocodeLastAt = Date.now();
+
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`地域検索失敗: ${res.status}`);
+    return await res.json();
+  }
+
+  function inBBox(ll, bb) {
+    if (!ll || !bb || bb.length < 4) return false;
+    const south = Number(bb[0]), north = Number(bb[1]);
+    const west = Number(bb[2]), east = Number(bb[3]);
+    return ll[0] >= south && ll[0] <= north && ll[1] >= west && ll[1] <= east;
+  }
+
+  async function searchPlaces() {
+    const q = els.placeSearch.value.trim();
+    if (!q) {
+      els.searchResults.innerHTML = '';
+      return;
+    }
+
+    // Cached place-name hits are kept as a secondary reference.
+    const localHits = [];
+    const qLower = q.toLowerCase();
+    for (const [key, info] of Object.entries(geocodeCache)) {
+      const hay = `${info.name || ''} ${info.address || ''} ${info.display_name || ''}`.toLowerCase();
+      if (hay.includes(qLower)) localHits.push({key, info});
+      if (localHits.length >= 20) break;
+    }
+
+    let htmlParts = ['<div class="search-head">行った地域を検索中…</div>'];
+    els.searchResults.innerHTML = htmlParts.join('');
+
+    try {
+      const regions = await nominatimSearch(q);
+      if (!regions.length) {
+        htmlParts[0] = '<div class="search-head">地域候補は見つかりませんでした。</div>';
+      } else {
+        const visitPoints = allVisitPoints();
+        let regionHtml = '<div class="search-head">行った地域の候補</div>';
+
+        for (const r of regions) {
+          const bb = r.boundingbox;
+          const hits = visitPoints.filter(v => inBBox(v.ll, bb));
+          const uniqueDays = [...new Set(hits.map(h => h.day).filter(Boolean))].sort();
+
+          regionHtml += `
+            <div class="search-result region-result"
+                 data-lat="${esc(r.lat)}"
+                 data-lon="${esc(r.lon)}"
+                 data-bb="${esc((bb || []).join(','))}">
+              <b>🗾 ${esc(r.display_name || q)}</b><br>
+              ${uniqueDays.length
+                ? `<span class="search-date">行った記録：${uniqueDays.length}日</span>`
+                : 'この地域に一致する記録は見つかりませんでした。'}
+            </div>`;
+
+          if (uniqueDays.length) {
+            regionHtml += '<div class="search-head">この地域に行った日</div>';
+            for (const d of uniqueDays.slice().reverse().slice(0, 40)) {
+              regionHtml += `
+                <div class="search-result region-day" data-day="${esc(d)}">
+                  📅 <span class="search-date">${esc(dayLabel(d))}</span>
+                </div>`;
+            }
+            if (uniqueDays.length > 40) {
+              regionHtml += `<div class="resolve-note">ほか ${uniqueDays.length - 40} 日あります。</div>`;
+            }
+          }
+        }
+        htmlParts[0] = regionHtml;
+      }
+
+      if (localHits.length) {
+        htmlParts.push('<div class="search-head">参考：取得済みの場所名・住所</div>');
+        htmlParts.push(localHits.map(h => `
+          <div class="search-result local-place" data-key="${esc(h.key)}">
+            <b>${esc(h.info.name || '場所')}</b><br>
+            ${esc(h.info.address || h.info.display_name || h.key)}
+          </div>`).join(''));
+      }
+
+      els.searchResults.innerHTML = htmlParts.join('');
+      wireSearchClicks();
+      if (currentDay) highlightRegionDay(currentDay);
+    } catch (e) {
+      console.warn(e);
+      els.searchResults.innerHTML =
+        '<div class="resolve-note">地域検索に失敗しました。インターネット接続を確認してください。</div>';
+    }
+  }
+
+  function wireSearchClicks() {
+    els.searchResults.querySelectorAll('.local-place').forEach(el => {
+      el.addEventListener('click', () => {
+        const ll = el.dataset.key.split(',').map(Number);
+        if (ll.length === 2 && ll.every(Number.isFinite)) map.setView(ll, 16);
+      });
+    });
+
+    els.searchResults.querySelectorAll('.region-result').forEach(el => {
+      el.addEventListener('click', () => {
+        const bb = (el.dataset.bb || '').split(',').map(Number);
+        if (bb.length === 4 && bb.every(Number.isFinite)) {
+          map.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], {padding:[25,25]});
+        } else {
+          const lat = Number(el.dataset.lat), lon = Number(el.dataset.lon);
+          if (Number.isFinite(lat) && Number.isFinite(lon)) map.setView([lat, lon], 9);
+        }
+      });
+    });
+
+    els.searchResults.querySelectorAll('.region-day').forEach(el => {
+      el.addEventListener('click', () => {
+        const d = el.dataset.day;
+        if (d) {
+          renderDay(d);
+          highlightRegionDay(d);
+        }
+      });
+    });
+  }
+
+
+  function highlightRegionDay(day) {
+    els.searchResults.querySelectorAll('.region-day').forEach(el => {
+      const active = el.dataset.day === day;
+      el.classList.toggle('region-day-active', active);
+      el.setAttribute('aria-current', active ? 'date' : 'false');
+    });
+  }
+
+  function dayLabel(day) {
+    if (!day) return '';
+    const d = new Date(day + 'T12:00:00');
+    if (Number.isNaN(d.getTime())) return day;
+    const wd = ['日','月','火','水','木','金','土'][d.getDay()];
+    return `${day} (${wd})`;
+  }
+
+  function randomMemoryDay() {
+    if (!availableDates.length) return;
+    const i = Math.floor(Math.random() * availableDates.length);
+    const d = availableDates[i];
+    els.memoryOutput.innerHTML =
+      `<div class="memory-big">🎲 ${esc(dayLabel(d))}</div>` +
+      `<div>この日にワープしました。</div>`;
+    renderDay(d);
+  }
+
+  function yearsAgoToday() {
+    if (!availableDates.length) return;
+    const now = new Date();
+    const mmdd = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const hits = availableDates.filter(d => d.slice(5) === mmdd).sort().reverse();
+
+    if (!hits.length) {
+      els.memoryOutput.innerHTML = 'この日付の過去記録は見つかりませんでした。';
+      return;
+    }
+
+    els.memoryOutput.innerHTML =
+      `<div class="memory-big">🕰 ${esc(mmdd)}</div>` +
+      hits.map(d => {
+        const years = now.getFullYear() - Number(d.slice(0,4));
+        return `<div class="memory-item memory-day" data-day="${esc(d)}"><b>${years}年前</b> — ${esc(dayLabel(d))}</div>`;
+      }).join('');
+
+    els.memoryOutput.querySelectorAll('.memory-day').forEach(el => {
+      el.addEventListener('click', () => renderDay(el.dataset.day));
+    });
+  }
+
+  function buildTrips() {
+    const trips = [];
+    for (const s of segments) {
+      const trip = s.timelineMemory?.trip;
+      if (!trip) continue;
+      trips.push({
+        start: dateKey(s.startTime),
+        end: dateKey(s.endTime),
+        distance: Number(trip.distanceFromOriginKms) || 0,
+        destinations: Array.isArray(trip.destinations) ? trip.destinations.length : 0
+      });
+    }
+    return trips.sort((a,b) => (b.start || '').localeCompare(a.start || ''));
+  }
+
+  function showTrips() {
+    const trips = buildTrips();
+    if (!trips.length) {
+      els.memoryOutput.innerHTML = '旅行データは見つかりませんでした。';
+      return;
+    }
+
+    els.memoryOutput.innerHTML =
+      `<div class="memory-big">🧳 旅行 ${trips.length}件</div>` +
+      trips.slice(0,80).map(t => `
+        <div class="memory-item trip-item" data-day="${esc(t.start || '')}">
+          <b>${esc(t.start || '?')}</b>${t.end && t.end !== t.start ? ` ～ ${esc(t.end)}` : ''}<br>
+          ${t.distance ? `自宅から約 ${esc(String(t.distance))} km` : ''}
+          ${t.destinations ? ` ・ 目的地 ${t.destinations}件` : ''}
+        </div>`).join('');
+
+    els.memoryOutput.querySelectorAll('.trip-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const d = el.dataset.day;
+        if (d) renderDay(d);
+      });
+    });
+  }
+
+  function cityInfoFromCache(info) {
+    if (!info) return null;
+
+    let city = (info.city || '').trim();
+    let prefecture = (info.prefecture || '').trim();
+
+    const hay = `${info.address || ''} / ${info.display_name || ''}`;
+
+    if (!city) {
+      const cityMatch = hay.match(/([^,/\s]{1,24}市)/);
+      const wardMatch = hay.match(/([^,/\s]{1,24}区)/);
+      const townVillageMatch = hay.match(/([^,/\s]{1,24}(?:町|村))/);
+      city = cityMatch?.[1] || wardMatch?.[1] || townVillageMatch?.[1] || '';
+    }
+
+    if (!prefecture) {
+      const prefMatch = hay.match(/([^,/\s]{2,12}(?:都|道|府|県))/);
+      prefecture = prefMatch?.[1] || '';
+    }
+
+    if (!city) return null;
+    return { city, prefecture, country: info.country || '' };
+  }
+
+  function collectVisitedCities() {
+    const groups = new Map();
+    let resolvedVisits = 0;
+    let unresolvedVisits = 0;
+
+    for (const v of allVisitPoints()) {
+      const key = cacheKey(v.ll);
+      const info = key ? geocodeCache[key] : null;
+      const ci = cityInfoFromCache(info);
+
+      if (!ci) {
+        unresolvedVisits++;
+        continue;
+      }
+
+      resolvedVisits++;
+      const groupKey = `${ci.prefecture}|${ci.city}`;
+      let g = groups.get(groupKey);
+
+      if (!g) {
+        g = {
+          city: ci.city,
+          prefecture: ci.prefecture,
+          country: ci.country,
+          visits: 0,
+          days: new Set(),
+          latSum: 0,
+          lngSum: 0,
+          points: 0
+        };
+        groups.set(groupKey, g);
+      }
+
+      g.visits++;
+      if (v.day) g.days.add(v.day);
+      g.latSum += v.ll[0];
+      g.lngSum += v.ll[1];
+      g.points++;
+    }
+
+    const cities = [...groups.values()].map(g => ({
+      city: g.city,
+      prefecture: g.prefecture,
+      country: g.country,
+      visits: g.visits,
+      days: [...g.days].sort().reverse(),
+      ll: [g.latSum / g.points, g.lngSum / g.points]
+    })).sort((a,b) => b.visits - a.visits || a.city.localeCompare(b.city, 'ja'));
+
+    return { cities, resolvedVisits, unresolvedVisits };
+  }
+
+  function renderCityMap(cities) {
+    layer.clearLayers();
+    bounds = [];
+
+    for (const c of cities) {
+      const countText = c.visits > 99 ? '99+' : String(c.visits);
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="city-map-marker">${esc(countText)}</div>`,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+      });
+
+      const label = `${c.city}${c.prefecture ? `（${c.prefecture}）` : ''}`;
+      const marker = L.marker(c.ll, {icon})
+        .bindTooltip(`${label}・訪問 ${c.visits}回`)
+        .bindPopup(
+          `<b>${esc(label)}</b><br>` +
+          `訪問 ${c.visits}回 / ${c.days.length}日<br>` +
+          `マークをクリックすると訪問日一覧を表示`
+        )
+        .addTo(layer);
+
+      marker._cityKey = `${c.prefecture}|${c.city}`;
+      marker.on('click', () => showCityDetails(marker._cityKey));
+      addBound(c.ll);
+    }
+
+    if (bounds.length) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 9 });
+    } else {
+      map.setView([36.2, 138.2], 5);
+    }
+  }
+
+  function showCityDetails(cityKey) {
+    const {cities} = collectVisitedCities();
+    const c = cities.find(x => `${x.prefecture}|${x.city}` === cityKey);
+    if (!c) return;
+
+    map.setView(c.ll, 11);
+
+    const label = `${c.city}${c.prefecture ? `（${c.prefecture}）` : ''}`;
+
+    els.memoryOutput.innerHTML =
+      `<div class="memory-big">🏙 ${esc(label)}</div>` +
+      `<div class="city-summary">訪問 ${c.visits}回 ・ ${c.days.length}日</div>` +
+      `<div class="search-head">この都市に行った日（新しい順）</div>` +
+      c.days.map(d => `
+        <div class="memory-item city-day" data-day="${esc(d)}">
+          <b>${esc(dayLabel(d))}</b>
+          ${d === currentDay ? '<span style="float:right;color:#93c5fd;font-weight:700">表示中</span>' : ''}
+        </div>`).join('') +
+      `<button id="backToCities" class="city-fetch">← 行った都市一覧へ戻る</button>`;
+
+    els.memoryOutput.querySelectorAll('.city-day').forEach(el => {
+      el.addEventListener('click', () => {
+        const d = el.dataset.day;
+        if (d) renderDay(d);
+      });
+    });
+
+    const back = document.getElementById('backToCities');
+    if (back) back.addEventListener('click', showCities);
+
+    const marker = [...layer.getLayers()].find(x => x._cityKey === cityKey);
+    if (marker) marker.openPopup();
+  }
+
+  async function fetchMoreCityNames(limit = 5) {
+    const unique = new Map();
+
+    for (const v of allVisitPoints()) {
+      const key = cacheKey(v.ll);
+      if (!key || geocodeCache[key] || unique.has(key)) continue;
+      unique.set(key, v.ll);
+      if (unique.size >= limit) break;
+    }
+
+    if (!unique.size) {
+      showCities();
+      return;
+    }
+
+    const btn = document.getElementById('cityFetchMore');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = `都市名を取得中… 0 / ${unique.size}`;
+    }
+
+    let done = 0;
+    for (const [key, ll] of unique) {
+      try {
+        await reverseGeocode(ll);
+      } catch (e) {
+        console.warn(e);
+      }
+      done++;
+      if (btn) btn.textContent = `都市名を取得中… ${done} / ${unique.size}`;
+    }
+
+    showCities();
+  }
+
+  function showCities() {
+    if (!segments.length) return;
+
+    const result = collectVisitedCities();
+    renderCityMap(result.cities);
+
+    let out = `<div class="memory-big">🏙 行った都市 ${result.cities.length}件</div>`;
+    out += `<div class="city-summary">取得済みの場所情報から集計。都市を押すと地図へ移動します。</div>`;
+
+    if (!result.cities.length) {
+      out += `<div class="memory-item">まだ都市名を判定できる場所情報がありません。</div>`;
+    } else {
+      out += result.cities.map(c => {
+        const key = `${c.prefecture}|${c.city}`;
+        const latest = c.days[0] || '';
+        const earliest = c.days[c.days.length - 1] || '';
+        const period = earliest && latest && earliest !== latest ? `${earliest} ～ ${latest}` : latest;
+        return `
+          <div class="memory-item city-item" data-citykey="${esc(key)}">
+            <div>
+              <span class="city-name">${esc(c.city)}</span>
+              ${c.prefecture ? `<span>（${esc(c.prefecture)}）</span>` : ''}
+            </div>
+            <div class="city-count">訪問 ${c.visits}回</div>
+            <div class="city-days">${c.days.length}日${period ? ` ・ ${esc(period)}` : ''}</div>
+          </div>`;
+      }).join('');
+    }
+
+    if (result.unresolvedVisits > 0) {
+      out += `
+        <button id="cityFetchMore" class="city-fetch">
+          ＋ 未判定の都市を追加取得（5地点）
+        </button>
+        <div class="resolve-note">
+          未判定の訪問地点：${result.unresolvedVisits}件。外部サービスへ大量送信しないよう、5地点ずつ取得します。
+        </div>`;
+    } else {
+      out += `<div class="resolve-note">✅ 取得済みの訪問地点はすべて都市集計に反映されています。</div>`;
+    }
+
+    els.memoryOutput.innerHTML = out;
+
+    els.memoryOutput.querySelectorAll('.city-item').forEach(el => {
+      el.addEventListener('click', () => showCityDetails(el.dataset.citykey));
+    });
+
+    const fetchBtn = document.getElementById('cityFetchMore');
+    if (fetchBtn) fetchBtn.addEventListener('click', () => fetchMoreCityNames(5));
+  }
+
+
+  function showRankings() {
+    if (!segments.length) return;
+
+    const activities = [];
+    const visitCounts = new Map();
+
+    for (const s of segments) {
+      if (s.activity) {
+        const m = Number(s.activity.distanceMeters) || 0;
+        if (m > 0) {
+          activities.push({
+            day: dateKey(s.startTime),
+            distance: m,
+            type: s.activity?.topCandidate?.type || 'UNKNOWN_ACTIVITY_TYPE'
+          });
+        }
+      }
+
+      if (s.visit) {
+        const c = s.visit.topCandidate || {};
+        const key = c.placeId || c.placeLocation?.latLng;
+        if (key) {
+          const cur = visitCounts.get(key) || {
+            count: 0,
+            placeId: c.placeId || '',
+            ll: parseLatLng(c.placeLocation?.latLng),
+            semantic: SEMANTIC[c.semanticType] || '📍 訪問'
+          };
+          cur.count++;
+          visitCounts.set(key, cur);
+        }
+      }
+    }
+
+    activities.sort((a,b) => b.distance-a.distance);
+    const longest = activities.slice(0,8);
+
+    const topPlaces = [...visitCounts.values()]
+      .sort((a,b) => b.count-a.count)
+      .slice(0,8);
+
+    let out = `<div class="memory-big">🏆 ランキング</div>`;
+    out += `<div class="search-head">最長移動</div>`;
+    out += longest.map((x,i) => `
+      <div class="memory-item rank-day" data-day="${esc(x.day || '')}">
+        <span class="rank-num">${i+1}.</span>
+        ${esc(ACTIVITY[x.type] || x.type)}　
+        <b>${esc(metersText(x.distance))}</b><br>
+        ${esc(x.day || '')}
+      </div>`).join('');
+
+    out += `<div class="search-head">よく訪れた場所</div>`;
+    out += topPlaces.map((x,i) => {
+      const key = x.ll ? cacheKey(x.ll) : '';
+      const info = key ? geocodeCache[key] : null;
+      const nm = info?.name || x.semantic;
+      const addr = info?.address || '';
+      return `
+        <div class="memory-item rank-place"
+             data-lat="${x.ll ? x.ll[0] : ''}"
+             data-lng="${x.ll ? x.ll[1] : ''}">
+          <span class="rank-num">${i+1}.</span>
+          <b>${esc(nm)}</b>　${x.count}回
+          ${addr ? `<br>${esc(addr)}` : ''}
+        </div>`;
+    }).join('');
+
+    els.memoryOutput.innerHTML = out;
+
+    els.memoryOutput.querySelectorAll('.rank-day').forEach(el => {
+      el.addEventListener('click', () => {
+        const d = el.dataset.day;
+        if (d) renderDay(d);
+      });
+    });
+
+    els.memoryOutput.querySelectorAll('.rank-place').forEach(el => {
+      el.addEventListener('click', () => {
+        const lat = Number(el.dataset.lat), lng = Number(el.dataset.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) map.setView([lat,lng], 15);
+      });
+    });
+  }
+
+  function buildDateIndex() {
+    const set = new Set();
+
+    for (const s of segments) {
+      if (s.startTime) set.add(dateKey(s.startTime));
+      if (s.endTime) set.add(dateKey(s.endTime));
+
+      if (Array.isArray(s.timelinePath)) {
+        for (const p of s.timelinePath) {
+          if (p.time) set.add(dateKey(p.time));
+        }
+      }
+    }
+
+    availableDates = [...set].filter(Boolean).sort();
+  }
+
+  async function loadFile(file) {
+    if (!file) return;
+
+    els.status.textContent = `読み込み中…\n${file.name} / ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+    els.events.innerHTML = '<div class="empty">JSONを解析しています…</div>';
+
+    try {
+      const text = await file.text();
+      data = JSON.parse(text);
+      segments = Array.isArray(data.semanticSegments) ? data.semanticSegments : [];
+
+      if (!segments.length) {
+        throw new Error('semanticSegments が見つかりません。');
+      }
+
+      buildDateIndex();
+
+      els.date.disabled = false;
+      els.fit.disabled = false;
+      els.today.disabled = false;
+      els.year.disabled = false;
+      els.month.disabled = false;
+      els.placeSearch.disabled = false;
+      els.favorite.disabled = false;
+      els.dayNote.disabled = false;
+      els.randomDay.disabled = false;
+      els.yearsAgo.disabled = false;
+      els.tripList.disabled = false;
+      els.rankings.disabled = false;
+      els.cities.disabled = false;
+      populateYearMonth();
+
+      const first = availableDates[0];
+      const last = availableDates[availableDates.length - 1];
+
+      els.date.min = first;
+      els.date.max = last;
+      els.date.value = last;
+
+      els.status.textContent =
+        `✅ 読み込み完了\n` +
+        `${segments.length.toLocaleString()} セグメント\n` +
+        `${first} ～ ${last}`;
+
+      renderDay(last);
+    } catch (err) {
+      console.error(err);
+      els.status.textContent = '❌ 読み込みに失敗しました。\n' + err.message;
+      els.events.innerHTML = '<div class="empty">JSONを読み込めませんでした。</div>';
+    }
+  }
+
+  function segmentTouchesDay(s, day) {
+    if (dateKey(s.startTime) === day || dateKey(s.endTime) === day) return true;
+
+    if (Array.isArray(s.timelinePath)) {
+      return s.timelinePath.some(p => dateKey(p.time) === day);
+    }
+    return false;
+  }
+
+  function eventTime(s, day) {
+    if (dateKey(s.startTime) === day) return timeText(s.startTime);
+    if (Array.isArray(s.timelinePath)) {
+      const p = s.timelinePath.find(x => dateKey(x.time) === day);
+      if (p) return timeText(p.time);
+    }
+    return timeText(s.startTime);
+  }
+
+  function addBound(ll) {
+    if (ll && Number.isFinite(ll[0]) && Number.isFinite(ll[1])) bounds.push(ll);
+  }
+
+  function renderDay(day) {
+    if (!segments.length || !day) return;
+
+    els.date.value = day;
+    currentDay = day;
+    syncYearMonth(day);
+    refreshDayMetaUI(day);
+    layer.clearLayers();
+    bounds = [];
+
+    const daySegs = segments
+      .filter(s => segmentTouchesDay(s, day))
+      .sort((a, b) => (eventTime(a, day) || '').localeCompare(eventTime(b, day) || ''));
+
+    const visits = daySegs.filter(s => s.visit);
+    const acts = daySegs.filter(s => s.activity);
+    const paths = daySegs.filter(s => Array.isArray(s.timelinePath));
+
+    let dist = 0;
+    for (const s of acts) {
+      const m = Number(s.activity?.distanceMeters);
+      if (Number.isFinite(m)) dist += m;
+    }
+
+    const byType = {};
+    let moveMinutes = 0;
+    for (const s of acts) {
+      const type = s.activity?.topCandidate?.type || 'UNKNOWN_ACTIVITY_TYPE';
+      const m = Number(s.activity?.distanceMeters) || 0;
+      byType[type] = (byType[type] || 0) + m;
+      const a = Date.parse(s.startTime), b = Date.parse(s.endTime);
+      if (Number.isFinite(a) && Number.isFinite(b) && b >= a) moveMinutes += (b-a)/60000;
+    }
+
+    const breakdown = Object.entries(byType)
+      .sort((a,b) => b[1]-a[1])
+      .slice(0,4)
+      .map(([t,m]) => `${ACTIVITY[t] || t} ${metersText(m)}`)
+      .join(' ・ ');
+
+    const fav = ensureDayMeta(day).favorite ? ' ★' : '';
+    els.summary.innerHTML =
+      `<b>${esc(day)}${fav}</b><br>` +
+      `訪問 ${visits.length}件 ・ 移動 ${acts.length}件 ・ 経路 ${paths.length}件` +
+      (dist ? ` ・ 合計 約 ${esc(metersText(dist))}` : '') +
+      (moveMinutes ? `<div class="statline">移動時間 約 ${Math.floor(moveMinutes/60)}時間${Math.round(moveMinutes%60)}分</div>` : '') +
+      (breakdown ? `<div class="statline">${esc(breakdown)}</div>` : '');
+
+    // GPS path first
+    for (const s of paths) {
+      const pts = s.timelinePath
+        .filter(p => dateKey(p.time) === day)
+        .map(p => parseLatLng(p.point))
+        .filter(Boolean);
+
+      if (pts.length >= 2) {
+        L.polyline(pts, { weight: 4, opacity: 0.75 }).addTo(layer);
+        pts.forEach(addBound);
+      } else if (pts.length === 1) {
+        addBound(pts[0]);
+      }
+    }
+
+    // Activities
+    for (const s of acts) {
+      const a = s.activity || {};
+      const st = parseLatLng(a.start?.latLng);
+      const en = parseLatLng(a.end?.latLng);
+      const typ = ACTIVITY[a.topCandidate?.type] || ('➡ ' + (a.topCandidate?.type || '移動'));
+
+      if (st && en) {
+        L.polyline([st, en], routeStyle(a.topCandidate?.type))
+          .bindTooltip(`${typ} ${metersText(Number(a.distanceMeters))}`)
+          .addTo(layer);
+        addBound(st); addBound(en);
+      }
+    }
+
+    // Visits
+    for (const s of visits) {
+      const v = s.visit || {};
+      const c = v.topCandidate || {};
+      const ll = parseLatLng(c.placeLocation?.latLng);
+      if (!ll) continue;
+
+      const semantic = SEMANTIC[c.semanticType] || ('📍 ' + (c.semanticType || '訪問'));
+      const popup =
+        `<b>${esc(semantic)}</b><br>` +
+        `${esc(timeText(s.startTime))} ～ ${esc(timeText(s.endTime))}<br>` +
+        `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ll[0].toFixed(6) + ',' + ll[1].toFixed(6))}" target="_blank" rel="noopener">Googleマップで場所を見る</a>`;
+
+      const marker = L.marker(ll).bindPopup(popup).addTo(layer);
+      marker._timelineLL = ll;
+      marker._timelineSemantic = semantic;
+      marker._timelinePlaceId = c.placeId || '';
+      addBound(ll);
+    }
+
+    renderEvents(daySegs, day);
+
+    if (bounds.length) {
+      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
+    }
+
+    updateNavButtons(day);
+  }
+
+  function renderEvents(daySegs, day) {
+    if (!daySegs.length) {
+      els.events.innerHTML = '<div class="empty">この日の記録はありません。</div>';
+      return;
+    }
+
+    const cards = [];
+
+    for (const s of daySegs) {
+      if (s.visit) {
+        const c = s.visit.topCandidate || {};
+        const ll = parseLatLng(c.placeLocation?.latLng);
+        const semantic = SEMANTIC[c.semanticType] || ('📍 ' + (c.semanticType || '訪問'));
+        const placeId = c.placeId || '';
+
+        cards.push(`
+          <div class="event visit-card"
+               id="visit-${cards.length}"
+               data-lat="${ll ? ll[0] : ''}"
+               data-lng="${ll ? ll[1] : ''}"
+               data-semantic="${esc(semantic)}">
+            <div class="title">${esc(semantic)}</div>
+            <div class="place-name">${esc(semantic)}</div>
+            <div class="place-address"></div>
+            <div class="resolve-note">${ll ? '場所名を取得中…' : ''}</div>
+            <div class="meta">
+              <span class="badge">訪問</span>
+              ${esc(timeText(s.startTime))} ～ ${esc(timeText(s.endTime))}
+              ${ll ? `<br>${ll[0].toFixed(5)}, ${ll[1].toFixed(5)}` : ''}
+            </div>
+            ${placeId ? `<a class="mapslink" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ll[0].toFixed(6) + ',' + ll[1].toFixed(6))}" target="_blank" rel="noopener">Googleマップで場所を見る ↗</a>` : ''}
+          </div>
+        `);
+      } else if (s.activity) {
+        const a = s.activity;
+        const typ = ACTIVITY[a.topCandidate?.type] || ('➡ ' + (a.topCandidate?.type || '移動'));
+        const st = parseLatLng(a.start?.latLng);
+
+        cards.push(`
+          <div class="event" data-lat="${st ? st[0] : ''}" data-lng="${st ? st[1] : ''}">
+            <div class="title">${esc(typ)}</div>
+            <div class="meta">
+              <span class="badge">移動</span>
+              ${esc(timeText(s.startTime))} ～ ${esc(timeText(s.endTime))}
+              ${a.distanceMeters != null ? `<br>距離 ${esc(metersText(Number(a.distanceMeters)))}` : ''}
+            </div>
+          </div>
+        `);
+      }
+    }
+
+    els.events.innerHTML = cards.join('') || '<div class="empty">表示できる訪問・移動記録がありません。</div>';
+
+    const markers = [];
+    layer.eachLayer(x => {
+      if (x instanceof L.Marker && x._timelineLL) markers.push(x);
+    });
+
+    els.events.querySelectorAll('.visit-card').forEach(card => {
+      const lat = Number(card.dataset.lat);
+      const lng = Number(card.dataset.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      let marker = null;
+      for (const m of markers) {
+        const ml = m._timelineLL;
+        if (Math.abs(ml[0] - lat) < 1e-8 && Math.abs(ml[1] - lng) < 1e-8) {
+          marker = m;
+          break;
+        }
+      }
+      enqueueGeocode(card, marker, [lat, lng], card.dataset.semantic || '📍 訪問');
+      if (marker) {
+        marker.on('click', () => {
+          card.scrollIntoView({behavior:'smooth', block:'center'});
+          card.style.outline = '2px solid #93c5fd';
+          setTimeout(() => card.style.outline = '', 1400);
+        });
+      }
+    });
+
+    els.events.querySelectorAll('.event').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.closest('a')) return;
+        const lat = Number(el.dataset.lat);
+        const lng = Number(el.dataset.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          map.setView([lat, lng], Math.max(map.getZoom(), 15));
+        }
+      });
+    });
+  }
+
+  function updateNavButtons(day) {
+    const idx = availableDates.indexOf(day);
+    els.prev.disabled = idx <= 0;
+    els.next.disabled = idx < 0 || idx >= availableDates.length - 1;
+  }
+
+  function moveDate(delta) {
+    const cur = els.date.value;
+    const idx = availableDates.indexOf(cur);
+
+    if (idx >= 0) {
+      const ni = idx + delta;
+      if (ni >= 0 && ni < availableDates.length) renderDay(availableDates[ni]);
+      return;
+    }
+
+    const d = new Date(cur + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    renderDay(d.toISOString().slice(0, 10));
+  }
+
+  els.file.addEventListener('change', () => loadFile(els.file.files[0]));
+  els.date.addEventListener('change', () => renderDay(els.date.value));
+  els.prev.addEventListener('click', () => moveDate(-1));
+  els.next.addEventListener('click', () => moveDate(1));
+  els.fit.addEventListener('click', () => {
+    if (bounds.length) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
+  });
+  els.today.addEventListener('click', () => {
+    if (availableDates.length) renderDay(availableDates[availableDates.length - 1]);
+  });
+
+  els.year.addEventListener('change', jumpYearMonth);
+  els.month.addEventListener('change', jumpYearMonth);
+  els.placeSearch.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    searchPlaces();
+  });
+
+
+  els.randomDay.addEventListener('click', randomMemoryDay);
+  els.yearsAgo.addEventListener('click', yearsAgoToday);
+  els.tripList.addEventListener('click', showTrips);
+  els.rankings.addEventListener('click', showRankings);
+  els.cities.addEventListener('click', showCities);
+
+  els.favorite.addEventListener('click', () => {
+    if (!currentDay) return;
+    const m = ensureDayMeta(currentDay);
+    m.favorite = !m.favorite;
+    saveDayMeta();
+    renderDay(currentDay);
+  });
+
+  let noteTimer = null;
+  els.dayNote.addEventListener('input', () => {
+    if (!currentDay) return;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(() => {
+      ensureDayMeta(currentDay).note = els.dayNote.value;
+      saveDayMeta();
+    }, 250);
+  });
+
+  // Drag & drop
+  let dragDepth = 0;
+
+  window.addEventListener('dragenter', e => {
+    e.preventDefault();
+    dragDepth++;
+    els.drop.style.display = 'flex';
+  });
+
+  window.addEventListener('dragover', e => e.preventDefault());
+
+  window.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dragDepth--;
+    if (dragDepth <= 0) {
+      dragDepth = 0;
+      els.drop.style.display = 'none';
+    }
+  });
+
+  window.addEventListener('drop', e => {
+    e.preventDefault();
+    dragDepth = 0;
+    els.drop.style.display = 'none';
+    const f = e.dataTransfer.files?.[0];
+    if (f) loadFile(f);
+  });
+})();
+</script>
+</body>
+</html>

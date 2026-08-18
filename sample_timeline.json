@@ -1,0 +1,59 @@
+{
+  "semanticSegments": [
+    {
+      "startTime": "2025-04-01T01:00:00.000Z",
+      "endTime": "2025-04-01T01:45:00.000Z",
+      "visit": {
+        "topCandidate": {
+          "placeLocation": {
+            "latLng": "35.681236,139.767125"
+          },
+          "semanticType": "UNKNOWN",
+          "placeId": ""
+        }
+      }
+    },
+    {
+      "startTime": "2025-04-01T01:45:00.000Z",
+      "endTime": "2025-04-01T02:15:00.000Z",
+      "activity": {
+        "topCandidate": {
+          "type": "IN_TRAIN"
+        },
+        "distanceMeters": 6200,
+        "start": {
+          "latLng": "35.681236,139.767125"
+        },
+        "end": {
+          "latLng": "35.710063,139.810700"
+        }
+      }
+    },
+    {
+      "startTime": "2025-04-01T02:15:00.000Z",
+      "endTime": "2025-04-01T03:30:00.000Z",
+      "visit": {
+        "topCandidate": {
+          "placeLocation": {
+            "latLng": "35.710063,139.810700"
+          },
+          "semanticType": "UNKNOWN",
+          "placeId": ""
+        }
+      }
+    },
+    {
+      "startTime": "2025-04-02T03:00:00.000Z",
+      "endTime": "2025-04-02T04:00:00.000Z",
+      "visit": {
+        "topCandidate": {
+          "placeLocation": {
+            "latLng": "35.658581,139.745433"
+          },
+          "semanticType": "UNKNOWN",
+          "placeId": ""
+        }
+      }
+    }
+  ]
+}
