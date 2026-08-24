@@ -7,7 +7,16 @@ Maplimo（マプリモ）は、Android から書き出した Google Maps Timelin
 地図上で振り返るための非公式ビューアです。
 
 > Google 公式のアプリ・サービスではありません。
+## スクリーンショット
 
+### 訪れた場所を地図で振り返る
+![訪れた場所を日本地図で振り返る](maplimo-map-overview.png)
+
+### 行った都市を一覧表示
+![行った都市を一覧表示](maplimo-visited-places.png)
+
+### 地域から訪れた日を検索
+![地域を検索して訪れた日を一覧表示](maplimo-region-search.png)
 ## 主な機能
 
 - `タイムライン.json` を選択、またはドラッグ＆ドロップで読み込み
